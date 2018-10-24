@@ -155,7 +155,6 @@ typedef void(^CalendarPlanetaryHours)(NSArray <NSDate *> *dates, CLLocation *loc
 - (void)planetaryHours:(_Nullable NSRangePointer *)hours date:(nullable NSDate *)date location:(nullable CLLocation *)location withCompletion:(void(^)(NSArray<NSDictionary *> *))planetaryHoursData;
 - (void)planetaryHour:(NSUInteger)hour date:(nullable NSDate *)date location:(nullable CLLocation *)location withCompletion:(void(^)(NSDictionary *))planetaryHourData;
 - (void)planetaryHour:(NSUInteger)hour date:(nullable NSDate *)date location:(nullable CLLocation *)location objectForKey:(PlanetaryHourDataKey)planetaryHourDataKey withCompletion:(void(^)(NSString *))planetaryHourDataObject;
-- (void)currentPlanetaryHourAtLocation:(nullable CLLocation *)location withCompletion:(void(^)(NSDictionary *))planetaryHourDataObject;
 
 @property (copy) NSDictionary *(^PlanetaryHour)(Planet planet, NSTimeInterval hourDuration, NSUInteger hour, NSDate *start, CLLocationCoordinate2D coordinate);
 @property (copy) void(^cachedSunriseSunsetData)(CLLocation * _Nullable location, NSDate * _Nullable date, CachedSunriseSunsetDataWithCompletionBlock sunriseSunsetData);
