@@ -134,6 +134,9 @@ typedef NS_ENUM(NSUInteger, PlanetaryHourDataKey) {
 typedef void(^CachedSunriseSunsetDataWithCompletionBlock)(NSArray<NSDate *> *sunriseSunsetDates);
 typedef void(^CachedSunriseSunsetData)(CLLocation * _Nullable, NSDate  * _Nullable , CachedSunriseSunsetDataWithCompletionBlock);
 
+typedef void(^CurrentPlanetaryHourCompletionBlock)(NSDictionary *currentPlanetaryHour);
+typedef void(^CurrentPlanetaryHourBlock)(CLLocation * _Nullable location, CurrentPlanetaryHourCompletionBlock currentPlanetaryHour);
+
 typedef void(^CalendarForEventStoreCompletionBlock)(EKCalendar *calendar);
 typedef void(^CalendarForEventStore)(EKEventStore *eventStore, CalendarForEventStoreCompletionBlock completionBlock);
 typedef void(^CalendarPlanetaryHourEventsCompletionBlock)(void);
@@ -153,10 +156,11 @@ typedef void(^CalendarPlanetaryHours)(NSArray <NSDate *> *dates, CLLocation *loc
 - (void)planetaryHour:(NSUInteger)hour date:(nullable NSDate *)date location:(nullable CLLocation *)location withCompletion:(void(^)(NSDictionary *))planetaryHourData;
 - (void)planetaryHour:(NSUInteger)hour date:(nullable NSDate *)date location:(nullable CLLocation *)location objectForKey:(PlanetaryHourDataKey)planetaryHourDataKey withCompletion:(void(^)(NSString *))planetaryHourDataObject;
 - (void)currentPlanetaryHourAtLocation:(nullable CLLocation *)location withCompletion:(void(^)(NSDictionary *))planetaryHourDataObject;
-- (UIColor *)colorForPlanetarySymbol:(NSString *)planetarySymbol;
 
 @property (copy) NSDictionary *(^PlanetaryHour)(Planet planet, NSTimeInterval hourDuration, NSUInteger hour, NSDate *start, CLLocationCoordinate2D coordinate);
 @property (copy) void(^cachedSunriseSunsetData)(CLLocation * _Nullable location, NSDate * _Nullable date, CachedSunriseSunsetDataWithCompletionBlock sunriseSunsetData);
+@property (copy) void(^currentPlanetaryHour)(CLLocation * _Nullable location, CurrentPlanetaryHourCompletionBlock currentPlanetaryHour);
+
 @property (copy) void(^calendarForEventStore)(EKEventStore *eventStore, CalendarForEventStoreCompletionBlock completionBlock);
 @property (copy) void(^calendarPlanetaryHours)(NSArray <NSDate *> *dates, CLLocation *location, CalendarForEventStoreCompletionBlock completionBlock);
 

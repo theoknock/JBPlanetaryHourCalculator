@@ -47,11 +47,103 @@ static NSArray<NSString *> *_planetaryHourDataKeys = NULL;
     return self;
 }
 
-// Planetary Hours Dictionary methods
-// (Create a dictionary of 24 planetary-hour dictionaries)
+#pragma mark - Location Services
 
+static CLLocationManager *locationManager = NULL;
+- (CLLocationManager *)locationManager
+{
+    static dispatch_once_t onceSecurePredicate;
+    dispatch_once(&onceSecurePredicate,^
+                  {
+                      if (!locationManager)
+                      {
+                          locationManager = [[CLLocationManager alloc] init];
+                          if ([locationManager respondsToSelector:@selector(requestWhenInUseAuthorization)]) {
+                              [locationManager requestWhenInUseAuthorization];
+                          }
+                          locationManager.pausesLocationUpdatesAutomatically = TRUE;
+                          [locationManager setDelegate:(id<CLLocationManagerDelegate> _Nullable)self];
+                      }
+                  });
+    
+    return locationManager;
+}
 
+#pragma mark <CLLocationManagerDelegate methods>
 
+- (void)locationManager:(CLLocationManager *)manager didFailWithError:(NSError *)error
+{
+    NSLog(@"%s\n%@", __PRETTY_FUNCTION__, error.localizedDescription);
+}
+
+- (void)locationManager:(CLLocationManager *)manager didChangeAuthorizationStatus:(CLAuthorizationStatus)status
+{
+    NSLog(@"%s\t\t\nLocation services authorization status code:\t%d", __PRETTY_FUNCTION__, status);
+    if (status == kCLAuthorizationStatusDenied || status == kCLAuthorizationStatusRestricted)
+    {
+        NSLog(@"%s\nFailure to authorize location services", __PRETTY_FUNCTION__);
+    }
+    else
+    {
+        CLAuthorizationStatus authStatus = [CLLocationManager authorizationStatus];
+        if (authStatus == kCLAuthorizationStatusAuthorizedWhenInUse ||
+            authStatus == kCLAuthorizationStatusAuthorizedAlways)
+        {
+            NSLog(@"Location services authorized");
+        }
+    }
+}
+
+- (void)locationManager:(CLLocationManager *)manager didUpdateLocations:(NSArray<CLLocation *> *)locations
+{
+    NSLog(@"%s", __PRETTY_FUNCTION__);
+    CLLocation *currentLocation = [locations lastObject];
+    if ((self.lastLocation == nil) || (((self.lastLocation.coordinate.latitude != currentLocation.coordinate.latitude) || (self.lastLocation.coordinate.longitude != currentLocation.coordinate.longitude)) && ((currentLocation.coordinate.latitude != 0.0) || (currentLocation.coordinate.longitude != 0.0)))) {
+        self.lastLocation = [[CLLocation alloc] initWithLatitude:currentLocation.coordinate.latitude longitude:currentLocation.coordinate.longitude];
+        NSLog(@"%s", __PRETTY_FUNCTION__);
+        //    [[NSNotificationCenter defaultCenter] postNotificationName:@"PlanetaryHoursDataSourceUpdatedNotification"
+        //                                                        object:nil
+        //                                                      userInfo:nil];
+    }
+}
+
+- (void)dealloc
+{
+    [locationManager stopMonitoringSignificantLocationChanges];
+}
+
+//
+//NSArray *(^datesWithData)(NSData *) = ^(NSData *urlSessionData)
+//{
+//    printf("%s\n", __PRETTY_FUNCTION__);
+//
+//    // Create midnight date object for current day
+//    NSCalendar *calendar = [[NSCalendar alloc] initWithCalendarIdentifier:NSCalendarIdentifierGregorian];
+//    NSString *midnightDateString = [NSString stringWithFormat:@"%lu-%lu-%lu'T'00:00:00+00:00",
+//                                    (long)[calendar component:NSCalendarUnitYear fromDate:[NSDate date]],
+//                                    (long)[calendar component:NSCalendarUnitMonth fromDate:[NSDate date]],
+//                                    (long)[calendar component:NSCalendarUnitDay fromDate:[NSDate date]]];
+//
+//
+//    __autoreleasing NSError *error;
+//    NSDictionary *responseDict = [NSJSONSerialization JSONObjectWithData:urlSessionData options:NSJSONReadingMutableLeaves error:&error];
+//    NSDateFormatter *RFC3339DateFormatter = [[NSDateFormatter alloc] init];
+//    RFC3339DateFormatter.locale = [NSLocale currentLocale];
+//    RFC3339DateFormatter.dateFormat = @"yyyy-MM-dd'T'HH:mm:ssZZZZZ";
+//    RFC3339DateFormatter.timeZone = [NSTimeZone localTimeZone];
+//    NSDate *midnight = [RFC3339DateFormatter dateFromString:midnightDateString];
+//    NSDate *sunrise = [RFC3339DateFormatter dateFromString:[[responseDict objectForKey:@"results"] objectForKey:@"sunrise"]];
+//    NSDate *sunset  = [RFC3339DateFormatter dateFromString:[[responseDict objectForKey:@"results"] objectForKey:@"sunset"]];
+//    NSDate *solarNoon  = [RFC3339DateFormatter dateFromString:[[responseDict objectForKey:@"results"] objectForKey:@"solar_noon"]];
+//    NSDate *civilTwilightBegin  = [RFC3339DateFormatter dateFromString:[[responseDict objectForKey:@"results"] objectForKey:@"civil_twilight_begin"]];
+//    NSDate *civilTwilightEnd  = [RFC3339DateFormatter dateFromString:[[responseDict objectForKey:@"results"] objectForKey:@"civil_twilight_end"]];
+//    NSDate *nauticalTwilightBegin  = [RFC3339DateFormatter dateFromString:[[responseDict objectForKey:@"results"] objectForKey:@"nautical_twilight_begin"]];
+//    NSDate *nauticalTwilightEnd  = [RFC3339DateFormatter dateFromString:[[responseDict objectForKey:@"results"] objectForKey:@"nautical_twilight_end"]];
+//    NSDate *astronomicalTwilightBegin  = [RFC3339DateFormatter dateFromString:[[responseDict objectForKey:@"results"] objectForKey:@"astronomical_twilight_begin"]];
+//    NSDate *astronomicalTwlightEnd  = [RFC3339DateFormatter dateFromString:[[responseDict objectForKey:@"results"] objectForKey:@"astronomical_twilight_end"]];
+//
+//    return @[midnight, astronomicalTwilightBegin, nauticalTwilightBegin, civilTwilightBegin, sunrise, solarNoon, sunset, civilTwilightEnd, nauticalTwilightEnd, astronomicalTwlightEnd];
+//};
 
 
 // The request and response blocks are separated from the cached data/cache data block
@@ -149,59 +241,59 @@ NSDictionary *(^planetaryHourData)(NSArray<NSNumber *> *, NSUInteger, NSArray<NS
     return planetaryHour;
 };
 
-- (void)planetaryHours:(_Nullable NSRangePointer *)hours date:(nullable NSDate *)date location:(nullable CLLocation *)location withCompletion:(void(^)(NSArray<NSDictionary *> *))planetaryHoursData;
-{
-    location = (CLLocationCoordinate2DIsValid(location.coordinate)) ? locationManager.location : location;
-    cachedSunriseSunsetData(location, [NSDate date],
-                            ^(NSArray<NSDate *> * _Nonnull sunriseSunsetDates) {
-                                __block NSMutableArray<NSDictionary *> *planetaryHoursArray = [[NSMutableArray alloc] initWithCapacity:24];
-                                __block dispatch_block_t planetaryHoursDictionaries;
-                                
-                                NSTimeInterval daySpan = [sunriseSunsetDates.firstObject timeIntervalSinceDate:sunriseSunsetDates.lastObject];
-                                NSTimeInterval dayHourDuration = daySpan / HOURS_PER_SOLAR_TRANSIT;
-                                NSTimeInterval nightSpan = fabs(SECONDS_PER_DAY - daySpan);
-                                NSTimeInterval nightHourDuration = nightSpan / HOURS_PER_SOLAR_TRANSIT;
-                                NSArray<NSNumber *> *hourDurations = @[[NSNumber numberWithDouble:dayHourDuration], [NSNumber numberWithDouble:nightHourDuration]];
-                                
-                                void(^planetaryHoursDictionary)(void) = ^(void) {
-                                    [planetaryHoursArray addObject:planetaryHourData(hourDurations, planetaryHoursArray.count, sunriseSunsetDates, location.coordinate)];
-                                    if (planetaryHoursArray.count < HOURS_PER_DAY) /*(sizeof(planetaryHoursArray) / sizeof([NSMutableArray class]))) */ planetaryHoursDictionaries();
-                                    else planetaryHoursData(planetaryHoursArray);
-                                };
-                                
-                                planetaryHoursDictionaries = ^{
-                                    planetaryHoursDictionary();
-                                };
-                                planetaryHoursDictionaries();
-                            });
-    
-}
+//- (void)planetaryHours:(_Nullable NSRangePointer *)hours date:(nullable NSDate *)date location:(nullable CLLocation *)location withCompletion:(void(^)(NSArray<NSDictionary *> *))planetaryHoursData;
+//{
+//    location = (CLLocationCoordinate2DIsValid(location.coordinate)) ? locationManager.location : location;
+//    cachedSunriseSunsetData(location, [NSDate date],
+//                            ^(NSArray<NSDate *> * _Nonnull sunriseSunsetDates) {
+//                                __block NSMutableArray<NSDictionary *> *planetaryHoursArray = [[NSMutableArray alloc] initWithCapacity:24];
+//                                __block dispatch_block_t planetaryHoursDictionaries;
+//
+//                                NSTimeInterval daySpan = [sunriseSunsetDates.firstObject timeIntervalSinceDate:sunriseSunsetDates.lastObject];
+//                                NSTimeInterval dayHourDuration = daySpan / HOURS_PER_SOLAR_TRANSIT;
+//                                NSTimeInterval nightSpan = fabs(SECONDS_PER_DAY - daySpan);
+//                                NSTimeInterval nightHourDuration = nightSpan / HOURS_PER_SOLAR_TRANSIT;
+//                                NSArray<NSNumber *> *hourDurations = @[[NSNumber numberWithDouble:dayHourDuration], [NSNumber numberWithDouble:nightHourDuration]];
+//
+//                                void(^planetaryHoursDictionary)(void) = ^(void) {
+//                                    [planetaryHoursArray addObject:planetaryHourData(hourDurations, planetaryHoursArray.count, sunriseSunsetDates, location.coordinate)];
+//                                    if (planetaryHoursArray.count < HOURS_PER_DAY) /*(sizeof(planetaryHoursArray) / sizeof([NSMutableArray class]))) */ planetaryHoursDictionaries();
+//                                    else planetaryHoursData(planetaryHoursArray);
+//                                };
+//
+//                                planetaryHoursDictionaries = ^{
+//                                    planetaryHoursDictionary();
+//                                };
+//                                planetaryHoursDictionaries();
+//                            });
+//
+//}
+//
+//- (void)planetaryHour:(NSUInteger)hour date:(nullable NSDate *)date location:(nullable CLLocation *)location withCompletion:(void(^)(NSDictionary *))planetaryHour;
+//{
+//    location = (CLLocationCoordinate2DIsValid(location.coordinate)) ? locationManager.location : location;
+//    cachedSunriseSunsetData(location, (!date) ? [NSDate date] : date,
+//                            ^(NSArray<NSDate *> * _Nonnull sunriseSunsetDates) {
+//                                NSTimeInterval daySpan = [sunriseSunsetDates.lastObject timeIntervalSinceDate:sunriseSunsetDates.firstObject];
+//                                NSTimeInterval dayHourDuration = daySpan / HOURS_PER_SOLAR_TRANSIT;
+//                                NSTimeInterval nightSpan = fabs(SECONDS_PER_DAY - daySpan);
+//                                NSTimeInterval nightHourDuration = nightSpan / HOURS_PER_SOLAR_TRANSIT;
+//                                NSLog(@"(%@\t-\t%@) / 12\t=\t%f", sunriseSunsetDates.firstObject, sunriseSunsetDates.lastObject, dayHourDuration);
+//
+//                                NSArray<NSNumber *> *hourDurations = @[[NSNumber numberWithDouble:dayHourDuration], [NSNumber numberWithDouble:nightHourDuration]];
+//                                planetaryHour(planetaryHourData(hourDurations, hour, sunriseSunsetDates, location.coordinate));
+//                            });
+//}
+//
+//- (void)planetaryHour:(NSUInteger)hour date:(nullable NSDate *)date location:(nullable CLLocation *)location objectForKey:(PlanetaryHourDataKey)planetaryHourDataKey withCompletion:(void(^)(NSString *))planetaryHourDataObject;
+//{
+//    planetaryHourDataKey = planetaryHourDataKey % 5;
+//    [self planetaryHour:hour date:date location:location withCompletion:^(NSDictionary * _Nonnull planetaryHourData) {
+//        //        planetaryHourDataObject(planetaryHourData[planetaryHourDataKey]);
+//    }];
+//}
 
-- (void)planetaryHour:(NSUInteger)hour date:(nullable NSDate *)date location:(nullable CLLocation *)location withCompletion:(void(^)(NSDictionary *))planetaryHour;
-{
-    location = (CLLocationCoordinate2DIsValid(location.coordinate)) ? locationManager.location : location;
-    cachedSunriseSunsetData(location, (!date) ? [NSDate date] : date,
-                            ^(NSArray<NSDate *> * _Nonnull sunriseSunsetDates) {
-                                NSTimeInterval daySpan = [sunriseSunsetDates.lastObject timeIntervalSinceDate:sunriseSunsetDates.firstObject];
-                                NSTimeInterval dayHourDuration = daySpan / HOURS_PER_SOLAR_TRANSIT;
-                                NSTimeInterval nightSpan = fabs(SECONDS_PER_DAY - daySpan);
-                                NSTimeInterval nightHourDuration = nightSpan / HOURS_PER_SOLAR_TRANSIT;
-                                NSLog(@"(%@\t-\t%@) / 12\t=\t%f", sunriseSunsetDates.firstObject, sunriseSunsetDates.lastObject, dayHourDuration);
-                                
-                                NSArray<NSNumber *> *hourDurations = @[[NSNumber numberWithDouble:dayHourDuration], [NSNumber numberWithDouble:nightHourDuration]];
-                                planetaryHour(planetaryHourData(hourDurations, hour, sunriseSunsetDates, location.coordinate));
-                            });
-}
-
-- (void)planetaryHour:(NSUInteger)hour date:(nullable NSDate *)date location:(nullable CLLocation *)location objectForKey:(PlanetaryHourDataKey)planetaryHourDataKey withCompletion:(void(^)(NSString *))planetaryHourDataObject;
-{
-    planetaryHourDataKey = planetaryHourDataKey % 5;
-    [self planetaryHour:hour date:date location:location withCompletion:^(NSDictionary * _Nonnull planetaryHourData) {
-        //        planetaryHourDataObject(planetaryHourData[planetaryHourDataKey]);
-    }];
-}
-
-- (void)currentPlanetaryHourAtLocation:(nullable CLLocation *)location withCompletion:(void(^)(NSDictionary *))planetaryHourDataObject
+void(^currentPlanetaryHourAtLocation)(CLLocation * _Nullable, CurrentPlanetaryHourCompletionBlock) = ^(CLLocation * _Nullable location, CurrentPlanetaryHourCompletionBlock currentPlanetaryHour)
 {
     location = (CLLocationCoordinate2DIsValid(location.coordinate)) ? locationManager.location : location;
     cachedSunriseSunsetData(location, [NSDate date],
@@ -227,7 +319,7 @@ NSDictionary *(^planetaryHourData)(NSArray<NSNumber *> *, NSUInteger, NSArray<NS
                                         hour++;
                                         planetaryHoursDictionaries();
                                     } else {
-                                        planetaryHourDataObject(planetaryHourData(hourDurations, hour, sunriseSunsetDates, location.coordinate));
+                                        currentPlanetaryHour(planetaryHourData(hourDurations, hour, sunriseSunsetDates, location.coordinate));
                                     }
                                 };
                                 
@@ -236,12 +328,10 @@ NSDictionary *(^planetaryHourData)(NSArray<NSNumber *> *, NSUInteger, NSArray<NS
                                 };
                                 planetaryHoursDictionaries();
                             });
-}
+};
 
 #pragma mark - EventKit
 
-typedef void(^CalendarForEventStoreCompletionBlock)(EKCalendar *calendar);
-typedef void(^CalendarForEventStore)(EKEventStore *eventStore, CalendarForEventStoreCompletionBlock completionBlock);
 void(^calendarForEventStore)(EKEventStore *, CalendarForEventStoreCompletionBlock) = ^(EKEventStore *eventStore, CalendarForEventStoreCompletionBlock completionBlock)
 {
     printf("\n%s\n", __PRETTY_FUNCTION__);
@@ -390,104 +480,4 @@ void(^calendarForEventStore)(EKEventStore *, CalendarForEventStoreCompletionBloc
     }];
 }
 
-
-#pragma mark - Location Services
-
-static CLLocationManager *locationManager = NULL;
-- (CLLocationManager *)locationManager
-{
-    static dispatch_once_t onceSecurePredicate;
-    dispatch_once(&onceSecurePredicate,^
-                  {
-                      if (!locationManager)
-                      {
-                          locationManager = [[CLLocationManager alloc] init];
-                          if ([locationManager respondsToSelector:@selector(requestWhenInUseAuthorization)]) {
-                              [locationManager requestWhenInUseAuthorization];
-                          }
-                          locationManager.pausesLocationUpdatesAutomatically = TRUE;
-                          [locationManager setDelegate:(id<CLLocationManagerDelegate> _Nullable)self];
-                      }
-                  });
-    
-    return locationManager;
-}
-
-#pragma mark <CLLocationManagerDelegate methods>
-
-- (void)locationManager:(CLLocationManager *)manager didFailWithError:(NSError *)error
-{
-    NSLog(@"%s\n%@", __PRETTY_FUNCTION__, error.localizedDescription);
-}
-
-- (void)locationManager:(CLLocationManager *)manager didChangeAuthorizationStatus:(CLAuthorizationStatus)status
-{
-    NSLog(@"%s\t\t\nLocation services authorization status code:\t%d", __PRETTY_FUNCTION__, status);
-    if (status == kCLAuthorizationStatusDenied || status == kCLAuthorizationStatusRestricted)
-    {
-        NSLog(@"%s\nFailure to authorize location services", __PRETTY_FUNCTION__);
-    }
-    else
-    {
-        CLAuthorizationStatus authStatus = [CLLocationManager authorizationStatus];
-        if (authStatus == kCLAuthorizationStatusAuthorizedWhenInUse ||
-            authStatus == kCLAuthorizationStatusAuthorizedAlways)
-        {
-            NSLog(@"Location services authorized");
-        }
-    }
-}
-
-- (void)locationManager:(CLLocationManager *)manager didUpdateLocations:(NSArray<CLLocation *> *)locations
-{
-    NSLog(@"%s", __PRETTY_FUNCTION__);
-    CLLocation *currentLocation = [locations lastObject];
-    if ((self.lastLocation == nil) || (((self.lastLocation.coordinate.latitude != currentLocation.coordinate.latitude) || (self.lastLocation.coordinate.longitude != currentLocation.coordinate.longitude)) && ((currentLocation.coordinate.latitude != 0.0) || (currentLocation.coordinate.longitude != 0.0)))) {
-        self.lastLocation = [[CLLocation alloc] initWithLatitude:currentLocation.coordinate.latitude longitude:currentLocation.coordinate.longitude];
-        NSLog(@"%s", __PRETTY_FUNCTION__);
-        //    [[NSNotificationCenter defaultCenter] postNotificationName:@"PlanetaryHoursDataSourceUpdatedNotification"
-        //                                                        object:nil
-        //                                                      userInfo:nil];
-    }
-}
-
-- (void)dealloc
-{
-    [locationManager stopMonitoringSignificantLocationChanges];
-}
-
 @end
-
-//
-//NSArray *(^datesWithData)(NSData *) = ^(NSData *urlSessionData)
-//{
-//    printf("%s\n", __PRETTY_FUNCTION__);
-//
-//    // Create midnight date object for current day
-//    NSCalendar *calendar = [[NSCalendar alloc] initWithCalendarIdentifier:NSCalendarIdentifierGregorian];
-//    NSString *midnightDateString = [NSString stringWithFormat:@"%lu-%lu-%lu'T'00:00:00+00:00",
-//                                    (long)[calendar component:NSCalendarUnitYear fromDate:[NSDate date]],
-//                                    (long)[calendar component:NSCalendarUnitMonth fromDate:[NSDate date]],
-//                                    (long)[calendar component:NSCalendarUnitDay fromDate:[NSDate date]]];
-//
-//
-//    __autoreleasing NSError *error;
-//    NSDictionary *responseDict = [NSJSONSerialization JSONObjectWithData:urlSessionData options:NSJSONReadingMutableLeaves error:&error];
-//    NSDateFormatter *RFC3339DateFormatter = [[NSDateFormatter alloc] init];
-//    RFC3339DateFormatter.locale = [NSLocale currentLocale];
-//    RFC3339DateFormatter.dateFormat = @"yyyy-MM-dd'T'HH:mm:ssZZZZZ";
-//    RFC3339DateFormatter.timeZone = [NSTimeZone localTimeZone];
-//    NSDate *midnight = [RFC3339DateFormatter dateFromString:midnightDateString];
-//    NSDate *sunrise = [RFC3339DateFormatter dateFromString:[[responseDict objectForKey:@"results"] objectForKey:@"sunrise"]];
-//    NSDate *sunset  = [RFC3339DateFormatter dateFromString:[[responseDict objectForKey:@"results"] objectForKey:@"sunset"]];
-//    NSDate *solarNoon  = [RFC3339DateFormatter dateFromString:[[responseDict objectForKey:@"results"] objectForKey:@"solar_noon"]];
-//    NSDate *civilTwilightBegin  = [RFC3339DateFormatter dateFromString:[[responseDict objectForKey:@"results"] objectForKey:@"civil_twilight_begin"]];
-//    NSDate *civilTwilightEnd  = [RFC3339DateFormatter dateFromString:[[responseDict objectForKey:@"results"] objectForKey:@"civil_twilight_end"]];
-//    NSDate *nauticalTwilightBegin  = [RFC3339DateFormatter dateFromString:[[responseDict objectForKey:@"results"] objectForKey:@"nautical_twilight_begin"]];
-//    NSDate *nauticalTwilightEnd  = [RFC3339DateFormatter dateFromString:[[responseDict objectForKey:@"results"] objectForKey:@"nautical_twilight_end"]];
-//    NSDate *astronomicalTwilightBegin  = [RFC3339DateFormatter dateFromString:[[responseDict objectForKey:@"results"] objectForKey:@"astronomical_twilight_begin"]];
-//    NSDate *astronomicalTwlightEnd  = [RFC3339DateFormatter dateFromString:[[responseDict objectForKey:@"results"] objectForKey:@"astronomical_twilight_end"]];
-//
-//    return @[midnight, astronomicalTwilightBegin, nauticalTwilightBegin, civilTwilightBegin, sunrise, solarNoon, sunset, civilTwilightEnd, nauticalTwilightEnd, astronomicalTwlightEnd];
-//};
-
