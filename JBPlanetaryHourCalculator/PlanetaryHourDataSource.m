@@ -107,6 +107,23 @@ static CLLocationManager *locationManager = NULL;
     }
 }
 
+#pragma mark - EventStore
+
+static EKEventStore *eventStore = NULL;
+- (nonnull EKEventStore *)eventStore
+{
+    static dispatch_once_t onceSecurePredicate;
+    dispatch_once(&onceSecurePredicate,^
+                  {
+                      if (!eventStore)
+                      {
+                          eventStore = [[EKEventStore alloc] init];
+                      }
+                  });
+    
+    return eventStore;
+}
+
 - (void)dealloc
 {
     [locationManager stopMonitoringSignificantLocationChanges];
@@ -359,39 +376,6 @@ void(^calendarForEventStore)(EKEventStore *, CalendarForEventStoreCompletionBloc
     }];
 };
 
-//NSPredicate *predicate = [sut predicateForEventsWithStartDate:startDate endDate:endDate calendars:nil];
-//
-//NSArray *events = [sut eventsMatchingPredicate:predicate];
-//
-//if (events && events.count > 0) {
-//
-//    NSLog(@"Deleting Events...");
-//
-//    [events enumerateObjectsUsingBlock:^(EKEvent *event, NSUInteger idx, BOOL *stop) {
-//
-//        NSLog(@"Removing Event: %@", event);
-//        NSError *error;
-//        if ( ! [sut removeEvent:event span:EKSpanFutureEvents commit:NO error:&error]) {
-//
-//            NSLog(@"Error in delete: %@", error);
-//
-//        }
-//
-//    }];
-//
-//    [sut commit:NULL];
-//
-//} else {
-//
-//    NSLog(@"No Events to Delete.");
-//}
-
-//        solarTransitPeriodData(solarTransitPeriodDataURL(currentLocation), ^(NSArray <NSDate *> *dates) {
-//            [self.delegate createEventWithDateSpan:dates location:currentLocation completion:^{
-//                self.lastLocation = nil;
-//            }];
-//        });
-
 - (void)createEventWithDateSpan:(NSArray <NSDate *> *)dates location:(CLLocation *)location completion:(void (^)(void))completionBlock
 {
     NSLog(@"%s", __PRETTY_FUNCTION__);
@@ -401,8 +385,6 @@ void(^calendarForEventStore)(EKEventStore *, CalendarForEventStoreCompletionBloc
     NSTimeInterval nightSpan = fabs(86400.0 - dayDuration);
     NSTimeInterval nightDuration = nightSpan / 12.0;
     
-    //    Create an EKEventStore instance
-    EKEventStore *eventStore = [[EKEventStore alloc] init];
     [eventStore requestAccessToEntityType:EKEntityTypeEvent completion:^(BOOL granted, NSError * _Nullable error) {
         if (granted)
         {
@@ -479,5 +461,39 @@ void(^calendarForEventStore)(EKEventStore *, CalendarForEventStoreCompletionBloc
         completionBlock();
     }];
 }
+
+//NSPredicate *predicate = [sut predicateForEventsWithStartDate:startDate endDate:endDate calendars:nil];
+//
+//NSArray *events = [sut eventsMatchingPredicate:predicate];
+//
+//if (events && events.count > 0) {
+//
+//    NSLog(@"Deleting Events...");
+//
+//    [events enumerateObjectsUsingBlock:^(EKEvent *event, NSUInteger idx, BOOL *stop) {
+//
+//        NSLog(@"Removing Event: %@", event);
+//        NSError *error;
+//        if ( ! [sut removeEvent:event span:EKSpanFutureEvents commit:NO error:&error]) {
+//
+//            NSLog(@"Error in delete: %@", error);
+//
+//        }
+//
+//    }];
+//
+//    [sut commit:NULL];
+//
+//} else {
+//
+//    NSLog(@"No Events to Delete.");
+//}
+
+//        solarTransitPeriodData(solarTransitPeriodDataURL(currentLocation), ^(NSArray <NSDate *> *dates) {
+//            [self.delegate createEventWithDateSpan:dates location:currentLocation completion:^{
+//                self.lastLocation = nil;
+//            }];
+//        });
+
 
 @end

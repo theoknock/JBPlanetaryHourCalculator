@@ -144,10 +144,12 @@ typedef void(^CalendarPlanetaryHours)(NSArray <NSDate *> *dates, CLLocation *loc
 
 
 #define SECONDS_PER_DAY 86400.00f
-#define HOURS_PER_SOLAR_TRANSIT 12
-#define HOURS_PER_DAY 24
+#define HOURS_PER_SOLAR_TRANSIT 12.0f
+#define HOURS_PER_DAY 24.0f
+
 
 @interface PlanetaryHourDataSource : NSObject <CLLocationManagerDelegate>
+
 
 @property (strong, nonatomic) dispatch_queue_t planetaryHourDataRequestQueue;
 @property (class, strong, nonatomic, readonly) NSArray<NSString *> *planetaryHourDataKeys;
@@ -164,6 +166,7 @@ typedef void(^CalendarPlanetaryHours)(NSArray <NSDate *> *dates, CLLocation *loc
 @property (copy) void(^calendarPlanetaryHours)(NSArray <NSDate *> *dates, CLLocation *location, CalendarForEventStoreCompletionBlock completionBlock);
 
 + (nonnull PlanetaryHourDataSource *)sharedDataSource;
++ (nonnull EKEventStore *)eventStore;
 + (NSArray<NSString *> *)planetaryHourDataKeys;
 
 @end
