@@ -8,7 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		B92A3FA5217F6A0E00A126BA /* JBPlanetaryHourCalculator.h in Headers */ = {isa = PBXBuildFile; fileRef = B92A3FA3217F6A0E00A126BA /* JBPlanetaryHourCalculator.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		B92A3FAD217F6A7200A126BA /* PlanetaryHourDataSource.h in Headers */ = {isa = PBXBuildFile; fileRef = B92A3FAB217F6A7200A126BA /* PlanetaryHourDataSource.h */; };
+		B92A3FAD217F6A7200A126BA /* PlanetaryHourDataSource.h in Headers */ = {isa = PBXBuildFile; fileRef = B92A3FAB217F6A7200A126BA /* PlanetaryHourDataSource.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		B92A3FAE217F6A7200A126BA /* PlanetaryHourDataSource.m in Sources */ = {isa = PBXBuildFile; fileRef = B92A3FAC217F6A7200A126BA /* PlanetaryHourDataSource.m */; };
 /* End PBXBuildFile section */
 

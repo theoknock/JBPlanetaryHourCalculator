@@ -33,6 +33,17 @@ typedef NS_ENUM(NSUInteger, Day) {
     SAT
 };
 
+typedef NS_ENUM(NSUInteger, Meridian) {
+    AM,
+    PM
+};
+
+typedef NS_ENUM(NSUInteger, SolarTransit) {
+    Sunrise,
+    Sunset
+};
+
+
 NSString *(^planetSymbol)(Planet) = ^(Planet planet) {
     switch (planet) {
         case Sun:
@@ -142,10 +153,13 @@ typedef void(^CalendarForEventStore)(EKEventStore *eventStore, CalendarForEventS
 typedef void(^CalendarPlanetaryHourEventsCompletionBlock)(void);
 typedef void(^CalendarPlanetaryHours)(NSArray <NSDate *> *dates, CLLocation *location, CalendarPlanetaryHourEventsCompletionBlock completionBlock);
 
+typedef NSDictionary *(^PlanetaryHourCompletionBlock)(NSDictionary *planetaryHour);
+typedef NSDictionary *(^PlanetaryHourBlock)(NSUInteger hour, NSDate * _Nullable date, CLLocation * _Nullable location, PlanetaryHourCompletionBlock planetaryHourCompletionBlock);
 
 #define SECONDS_PER_DAY 86400.00f
 #define HOURS_PER_SOLAR_TRANSIT 12.0f
 #define HOURS_PER_DAY 24.0f
+#define NUMBER_OF_PLANETS 7
 
 
 @interface PlanetaryHourDataSource : NSObject <CLLocationManagerDelegate>
@@ -158,15 +172,20 @@ typedef void(^CalendarPlanetaryHours)(NSArray <NSDate *> *dates, CLLocation *loc
 - (void)planetaryHour:(NSUInteger)hour date:(nullable NSDate *)date location:(nullable CLLocation *)location withCompletion:(void(^)(NSDictionary *))planetaryHourData;
 - (void)planetaryHour:(NSUInteger)hour date:(nullable NSDate *)date location:(nullable CLLocation *)location objectForKey:(PlanetaryHourDataKey)planetaryHourDataKey withCompletion:(void(^)(NSString *))planetaryHourDataObject;
 
-@property (copy) NSDictionary *(^PlanetaryHour)(Planet planet, NSTimeInterval hourDuration, NSUInteger hour, NSDate *start, CLLocationCoordinate2D coordinate);
+@property (copy) NSDictionary *(^planetaryHour)(Planet planet, NSTimeInterval hourDuration, NSUInteger hour, NSDate *start, CLLocationCoordinate2D coordinate);
 @property (copy) void(^cachedSunriseSunsetData)(CLLocation * _Nullable location, NSDate * _Nullable date, CachedSunriseSunsetDataWithCompletionBlock sunriseSunsetData);
 @property (copy) void(^currentPlanetaryHour)(CLLocation * _Nullable location, CurrentPlanetaryHourCompletionBlock currentPlanetaryHour);
 
 @property (copy) void(^calendarForEventStore)(EKEventStore *eventStore, CalendarForEventStoreCompletionBlock completionBlock);
 @property (copy) void(^calendarPlanetaryHours)(NSArray <NSDate *> *dates, CLLocation *location, CalendarForEventStoreCompletionBlock completionBlock);
+@property (copy) void(^planetaryHourBlock)(NSUInteger hour, NSDate * _Nullable date, CLLocation * _Nullable location, PlanetaryHourCompletionBlock planetaryHourCompletionBlock);
+
+
 
 + (nonnull PlanetaryHourDataSource *)sharedDataSource;
 + (nonnull EKEventStore *)eventStore;
+@property (copy) void(^calendarPlanetaryHoursForDate)(NSDate * _Nullable date, CLLocation * _Nullable location, dispatch_block_t block);
+
 + (NSArray<NSString *> *)planetaryHourDataKeys;
 
 @end
