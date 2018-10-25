@@ -403,6 +403,22 @@ void(^calendarForEventStore)(EKEventStore *, CalendarForEventStoreCompletionBloc
     }];
 };
 
+EKEvent *(^planetaryHourEvent)(EKEventStore *, EKCalendar *, NSString *, NSString *, NSDate *, NSDate *, CLLocation *) = ^(EKEventStore *eventStore, EKCalendar *calendar, NSString *symbol, NSString *name, NSDate *startTime, NSDate *endTime, CLLocation *location)
+{
+    EKEvent *event     = [EKEvent eventWithEventStore:eventStore];
+    event.calendar     = calendar;
+    event.title        = [NSString stringWithFormat:@"%@\t%@", symbol, name];
+    event.availability = EKEventAvailabilityFree;
+    event.alarms       = @[[EKAlarm alarmWithAbsoluteDate:startTime]];
+    event.location     = [NSString stringWithFormat:@"%f, %f", location.coordinate.latitude, location.coordinate.longitude];
+    event.notes        = [NSString stringWithFormat:@"%@\t%@", symbol, name];
+    event.startDate    = startTime;
+    event.endDate      = endTime;
+    event.allDay       = NO;
+    
+    return event;
+};
+
 void(^calendarPlanetaryHoursForDate)(NSDate * _Nullable, CLLocation * _Nullable, dispatch_block_t) = ^(NSDate * _Nullable date, CLLocation * _Nullable location, dispatch_block_t block) {
     NSLog(@"%s", __PRETTY_FUNCTION__);
     location = (CLLocationCoordinate2DIsValid(location.coordinate)) ? locationManager.location : location;
@@ -423,26 +439,20 @@ void(^calendarPlanetaryHoursForDate)(NSDate * _Nullable, CLLocation * _Nullable,
                     {
                         Meridian meridian = (hourMultiplier < HOURS_PER_SOLAR_TRANSIT) ? AM : PM;
                         SolarTransit transit = (hourMultiplier < HOURS_PER_SOLAR_TRANSIT) ? Sunrise : Sunset;
+                        NSUInteger planetStringIndex = ((planet + hourMultiplier) % NUMBER_OF_PLANETS);
+                        NSString *symbol = planetSymbol(planetStringIndex);
+                        NSString *name   = planetName(planetStringIndex);
                         NSTimeInterval startTimeInterval = hourDurations[meridian].doubleValue * hourMultiplier;
                         NSDate *startTime                = [[NSDate alloc] initWithTimeInterval:startTimeInterval sinceDate:dates[transit]];
                         NSTimeInterval endTimeInterval   = hourDurations[meridian].doubleValue * (hourMultiplier + 1);
                         NSDate *endTime                  = [[NSDate alloc] initWithTimeInterval:endTimeInterval sinceDate:dates[transit]];
                         
-                        EKEvent *event     = [EKEvent eventWithEventStore:eventStore];
-                        event.calendar     = calendar;
-                        event.title        = [NSString stringWithFormat:@"%@\t%@", planetSymbol((planet + hourMultiplier) % NUMBER_OF_PLANETS), planetName((planet + hourMultiplier) % NUMBER_OF_PLANETS)];
-                        event.availability = EKEventAvailabilityFree;
-                        event.alarms       = @[[EKAlarm alarmWithAbsoluteDate:startTime]];
-                        event.location     = [NSString stringWithFormat:@"%f, %f", location.coordinate.latitude, location.coordinate.longitude];
-                        event.notes        = [NSString stringWithFormat:@"%@\t%@", planetSymbol((planet + hourMultiplier) % NUMBER_OF_PLANETS), planetName((planet + hourMultiplier) % NUMBER_OF_PLANETS)];
-                        event.startDate    = startTime;
-                        event.endDate      = endTime;
-                        event.allDay       = NO;
+                        
                         
                         __autoreleasing NSError *error;
-                        if ([eventStore saveEvent:event span:EKSpanThisEvent error:&error])
+                        if ([eventStore saveEvent:planetaryHourEvent(eventStore, calendar, symbol, name, startTime, endTime, location) span:EKSpanThisEvent error:&error])
                         {
-                            NSLog(@"Event %lu saved:\t%@", (hourMultiplier + 1), event.description);
+                            NSLog(@"Event %lu saved.", (hourMultiplier + 1));
                         } else {
                             NSLog(@"Error saving event: %@", error.description);
                         }
