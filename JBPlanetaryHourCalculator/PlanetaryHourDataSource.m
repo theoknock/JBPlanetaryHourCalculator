@@ -456,7 +456,7 @@ void(^calendarPlanetaryHoursForDate)(NSDate * _Nullable, CLLocation * _Nullable,
     });
 };
 
-void(^planetaryEventForHour)(NSUInteger, NSDate * _Nullable, CLLocation * _Nullable, PlanetaryHourEventCompletionBlock) = ^(NSUInteger hour, NSDate * _Nullable date, CLLocation * _Nullable location, PlanetaryHourEventCompletionBlock completionBlock)
+void(^planetaryHourEventBlock)(NSUInteger, NSDate * _Nullable, CLLocation * _Nullable, PlanetaryHourEventCompletionBlock) = ^(NSUInteger hour, NSDate * _Nullable date, CLLocation * _Nullable location, PlanetaryHourEventCompletionBlock completionBlock)
 {
     NSLog(@"EVENT FOR HOUR:\t%lu\n%s", hour + 1, __PRETTY_FUNCTION__);
     location = (CLLocationCoordinate2DIsValid(location.coordinate)) ? locationManager.location : location;

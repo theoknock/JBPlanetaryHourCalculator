@@ -157,7 +157,7 @@ typedef void(^CalendarPlanetaryHours)(NSArray <NSDate *> *dates, CLLocation *loc
 //typedef void(^PlanetaryHourEvent)(NSUInteger hour, NSArray <NSDate *> *dates, CLLocation *location, PlanetaryHourCompletionBlock completionBlock);
 
 typedef void(^PlanetaryHourEventCompletionBlock)(EKEvent *planetaryHourEvent);
-typedef NSDictionary *(^PlanetaryHourBlock)(NSUInteger hour, NSDate * _Nullable date, CLLocation * _Nullable location, PlanetaryHourEventCompletionBlock planetaryHourEventCompletionBlock);
+typedef NSDictionary *(^PlanetaryHourEventBlock)(NSUInteger hour, NSDate * _Nullable date, CLLocation * _Nullable location, PlanetaryHourEventCompletionBlock planetaryHourEventCompletionBlock);
 
 #define SECONDS_PER_DAY 86400.00f
 #define HOURS_PER_SOLAR_TRANSIT 12.0f
@@ -180,7 +180,7 @@ typedef NSDictionary *(^PlanetaryHourBlock)(NSUInteger hour, NSDate * _Nullable 
 
 @property (copy) void(^calendarForEventStore)(EKEventStore *eventStore, CalendarForEventStoreCompletionBlock completionBlock);
 @property (copy) void(^calendarPlanetaryHours)(NSArray <NSDate *> *dates, CLLocation *location, CalendarForEventStoreCompletionBlock completionBlock);
-@property (copy) void(^planetaryHourBlock)(NSUInteger hour, NSDate * _Nullable date, CLLocation * _Nullable location, PlanetaryHourEventCompletionBlock planetaryHourCompletionBlock);
+@property (copy) void(^planetaryHourEventBlock)(NSUInteger hour, NSDate * _Nullable date, CLLocation * _Nullable location, PlanetaryHourEventCompletionBlock planetaryHourCompletionBlock);
 
 
 
