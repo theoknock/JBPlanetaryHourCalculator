@@ -428,7 +428,7 @@ EKEvent *(^planetaryHourEvent)(NSUInteger, EKEventStore *, EKCalendar *, NSArray
     return event;
 };
 
-void(^calendarPlanetaryHoursForDate)(NSDate * _Nullable, CLLocation * _Nullable, dispatch_block_t) = ^(NSDate * _Nullable date, CLLocation * _Nullable location, dispatch_block_t block) {
+void(^calendarPlanetaryHours)(NSDate * _Nullable, CLLocation * _Nullable, dispatch_block_t) = ^(NSDate * _Nullable date, CLLocation * _Nullable location, dispatch_block_t block) {
     NSLog(@"%s", __PRETTY_FUNCTION__);
     location = (CLLocationCoordinate2DIsValid(location.coordinate)) ? locationManager.location : location;
     date     = (!date) ? [NSDate date] : date;

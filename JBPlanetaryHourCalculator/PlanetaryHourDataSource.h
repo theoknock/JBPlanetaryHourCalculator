@@ -179,10 +179,8 @@ typedef NSDictionary *(^PlanetaryHourEventBlock)(NSUInteger hour, NSDate * _Null
 //@property (copy) void(^currentPlanetaryHour)(CLLocation * _Nullable location, CurrentPlanetaryHourCompletionBlock currentPlanetaryHour);
 
 @property (copy) void(^calendarForEventStore)(EKEventStore *eventStore, CalendarForEventStoreCompletionBlock completionBlock);
-@property (copy) void(^calendarPlanetaryHours)(NSArray <NSDate *> *dates, CLLocation *location, CalendarForEventStoreCompletionBlock completionBlock);
+@property (copy) void(^calendarPlanetaryHours)(NSDate * _Nullable date, CLLocation * _Nullable location);
 @property (copy) void(^planetaryHourEventBlock)(NSUInteger hour, NSDate * _Nullable date, CLLocation * _Nullable location, PlanetaryHourEventCompletionBlock planetaryHourCompletionBlock);
-
-
 
 + (nonnull PlanetaryHourDataSource *)sharedDataSource;
 + (nonnull EKEventStore *)eventStore;
