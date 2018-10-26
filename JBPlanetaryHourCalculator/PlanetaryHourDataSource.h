@@ -153,6 +153,10 @@ typedef void(^CalendarForEventStore)(EKEventStore *eventStore, CalendarForEventS
 typedef void(^CalendarPlanetaryHourEventsCompletionBlock)(void);
 typedef void(^CalendarPlanetaryHours)(NSArray <NSDate *> *dates, CLLocation *location, CalendarPlanetaryHourEventsCompletionBlock completionBlock);
 
+typedef void(^PlanetaryHourEventCompletionBlock)(EKEvent *planetaryHourEvent);
+typedef void(^PlanetaryHourEvent)(NSUInteger hour, NSArray <NSDate *> *dates, CLLocation *location, PlanetaryHourEventCompletionBlock completionBlock);
+
+
 typedef NSDictionary *(^PlanetaryHourCompletionBlock)(NSDictionary *planetaryHour);
 typedef NSDictionary *(^PlanetaryHourBlock)(NSUInteger hour, NSDate * _Nullable date, CLLocation * _Nullable location, PlanetaryHourCompletionBlock planetaryHourCompletionBlock);
 

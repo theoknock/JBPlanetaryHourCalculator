@@ -263,11 +263,11 @@ NSDictionary *(^planetaryHourData)(NSArray<NSNumber *> *, NSUInteger, NSArray<NS
     NSTimeInterval endTimeInterval   = hourDurations[index].doubleValue * (hour + 1);
     NSDate *endTime                  = [[NSDate alloc] initWithTimeInterval:endTimeInterval sinceDate:dates[index]];
     Planet dailyPlanet               = planetForDay(dates[index]);
-    NSDictionary *planetaryHour = @{kPlanetaryHourBeginDataKey    : [startTime description],
-                                    kPlanetaryHourEndDataKey      : [endTime description],
-                                    kPlanetaryHourLocationDataKey : [NSString stringWithFormat:@"%f, %f", coordinate.latitude, coordinate.longitude],
-                                    kPlanetaryHourSymbolDataKey   : planetSymbolForHour(dailyPlanet, hour),
-                                    kPlanetaryHourNameDataKey     : planetNameForHour(dailyPlanet, hour)};
+    NSDictionary *planetaryHour      = @{kPlanetaryHourBeginDataKey    : [startTime description],
+                                         kPlanetaryHourEndDataKey      : [endTime description],
+                                         kPlanetaryHourLocationDataKey : [NSString stringWithFormat:@"%f, %f", coordinate.latitude, coordinate.longitude],
+                                         kPlanetaryHourSymbolDataKey   : planetSymbolForHour(dailyPlanet, hour),
+                                         kPlanetaryHourNameDataKey     : planetNameForHour(dailyPlanet, hour)};
     
     return planetaryHour;
 };
@@ -405,12 +405,12 @@ void(^calendarForEventStore)(EKEventStore *, CalendarForEventStoreCompletionBloc
 
 EKEvent *(^planetaryHourEvent)(NSUInteger, EKEventStore *, EKCalendar *, NSArray<NSNumber *> *, NSArray<NSDate *> *, CLLocation *) = ^(NSUInteger hour, EKEventStore *eventStore, EKCalendar *calendar, NSArray<NSNumber *> *hourDurations, NSArray<NSDate *> *dates, CLLocation *location)
 {
-    Meridian meridian = (hour < HOURS_PER_SOLAR_TRANSIT) ? AM : PM;
-    SolarTransit transit = (hour < HOURS_PER_SOLAR_TRANSIT) ? Sunrise : Sunset;
-    Planet planet = planetForDay(dates.firstObject);
-    NSUInteger planetStringIndex = ((planet + hour) % NUMBER_OF_PLANETS);
-    NSString *symbol = planetSymbol(planetStringIndex);
-    NSString *name   = planetName(planetStringIndex);
+    Meridian meridian                = (hour < HOURS_PER_SOLAR_TRANSIT) ? AM : PM;
+    SolarTransit transit             = (hour < HOURS_PER_SOLAR_TRANSIT) ? Sunrise : Sunset;
+    Planet planet                    = planetForDay(dates.firstObject);
+    NSUInteger planetStringIndex     = ((planet + hour) % NUMBER_OF_PLANETS);
+    NSString *symbol                 = planetSymbol(planetStringIndex);
+    NSString *name                   = planetName(planetStringIndex);
     NSTimeInterval startTimeInterval = hourDurations[meridian].doubleValue * hour;
     NSDate *startTime                = [[NSDate alloc] initWithTimeInterval:startTimeInterval sinceDate:dates[transit]];
     NSTimeInterval endTimeInterval   = hourDurations[meridian].doubleValue * (hour + 1);
@@ -454,6 +454,34 @@ void(^calendarPlanetaryHoursForDate)(NSDate * _Nullable, CLLocation * _Nullable,
                 NSLog(@"Access to event store denied: %@", error.description);
             }
             block();
+        }];
+    });
+};
+
+void(^planetaryEventForHour)(NSUInteger, NSDate * _Nullable, CLLocation * _Nullable, PlanetaryHourEventCompletionBlock) = ^(NSUInteger hour, NSDate * _Nullable date, CLLocation * _Nullable location, PlanetaryHourEventCompletionBlock completionBlock)
+{
+    NSLog(@"EVENT FOR HOUR:\t%lu\n%s", hour + 1, __PRETTY_FUNCTION__);
+    location = (CLLocationCoordinate2DIsValid(location.coordinate)) ? locationManager.location : location;
+    date     = (!date) ? [NSDate date] : date;
+    hour     = hour % 24;
+    cachedSunriseSunsetData(location, date, ^(NSArray<NSDate *> * _Nonnull dates, NSArray<NSNumber *> *hourDurations) {
+        [eventStore requestAccessToEntityType:EKEntityTypeEvent completion:^(BOOL granted, NSError * _Nullable error) {
+            if (granted)
+            {
+                calendarForEventStore(eventStore, ^(EKCalendar *calendar) {
+                    EKEvent *event = planetaryHourEvent(hour, eventStore, calendar, hourDurations, dates, location);
+                    __autoreleasing NSError *error;
+                    if ([eventStore saveEvent:event span:EKSpanThisEvent error:&error])
+                    {
+                        NSLog(@"Event %lu saved.", (hour + 1));
+                        completionBlock(event);
+                    } else {
+                        NSLog(@"Error saving event: %@", error.description);
+                    }
+                });
+            } else {
+                NSLog(@"Access to event store denied: %@", error.description);
+            }
         }];
     });
 };
