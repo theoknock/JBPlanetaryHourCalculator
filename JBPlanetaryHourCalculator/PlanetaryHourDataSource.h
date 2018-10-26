@@ -184,7 +184,6 @@ typedef NSDictionary *(^PlanetaryHourEventBlock)(NSUInteger hour, NSDate * _Null
 
 + (nonnull PlanetaryHourDataSource *)sharedDataSource;
 + (nonnull EKEventStore *)eventStore;
-@property (copy) void(^calendarPlanetaryHoursForDate)(NSDate * _Nullable date, CLLocation * _Nullable location, dispatch_block_t block);
 
 + (NSArray<NSString *> *)planetaryHourDataKeys;
 
