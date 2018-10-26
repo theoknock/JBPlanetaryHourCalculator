@@ -142,7 +142,7 @@ typedef NS_ENUM(NSUInteger, PlanetaryHourDataKey) {
     PlanetaryHourLocationDataKey
 };
 
-typedef void(^CachedSunriseSunsetDataWithCompletionBlock)(NSArray<NSDate *> *sunriseSunsetDates);
+typedef void(^CachedSunriseSunsetDataWithCompletionBlock)(NSArray<NSDate *> *sunriseSunsetDates, NSArray<NSNumber *> *hourDurations);
 typedef void(^CachedSunriseSunsetData)(CLLocation * _Nullable, NSDate  * _Nullable , CachedSunriseSunsetDataWithCompletionBlock);
 
 typedef void(^CurrentPlanetaryHourCompletionBlock)(NSDictionary *currentPlanetaryHour);

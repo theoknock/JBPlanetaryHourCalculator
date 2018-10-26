@@ -197,6 +197,16 @@ NSURLRequest *(^requestSunriseSunsetOrg)(CLLocationCoordinate2D, NSDate *) = ^(C
 //
 //
 
+NSArray<NSNumber *> *(^hourDurations)(NSDateInterval *) = ^(NSDateInterval *dateSpan)
+{
+    NSTimeInterval dayDuration = dateSpan.duration / HOURS_PER_SOLAR_TRANSIT;
+    NSTimeInterval nightSpan = fabs(SECONDS_PER_DAY - dayDuration);
+    NSTimeInterval nightDuration = nightSpan / HOURS_PER_SOLAR_TRANSIT;
+    NSArray<NSNumber *> *hourDurations = @[[NSNumber numberWithDouble:dayDuration], [NSNumber numberWithDouble:nightDuration]];
+    
+    return hourDurations;
+};
+
 // Get the requisite solar period data (sunrise and sunset times) either from the cache or from the source
 // TO-DO: Add parameters for request and response blocks so that different sources can be used
 void(^cachedSunriseSunsetData)(CLLocation * _Nullable, NSDate * _Nullable, CachedSunriseSunsetDataWithCompletionBlock) = ^(CLLocation * _Nullable location, NSDate * _Nullable date, CachedSunriseSunsetDataWithCompletionBlock sunriseSunsetData)
@@ -204,7 +214,9 @@ void(^cachedSunriseSunsetData)(CLLocation * _Nullable, NSDate * _Nullable, Cache
     NSURLRequest *request = requestSunriseSunsetOrg(location.coordinate, date);
     NSData *cachedData = [[[NSURLCache sharedURLCache] cachedResponseForRequest:request] data];
     if (cachedData) {
-        sunriseSunsetData(responseSunriseSunsetOrg(cachedData));
+        NSArray<NSDate *> *sunriseSunsetDates = responseSunriseSunsetOrg(cachedData);
+        NSDateInterval *dateSpan = [[NSDateInterval alloc] initWithStartDate:sunriseSunsetDates.firstObject endDate:sunriseSunsetDates.lastObject];
+        sunriseSunsetData(sunriseSunsetDates, hourDurations(dateSpan));
     } else {
         [[[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
             if (error)
@@ -215,7 +227,9 @@ void(^cachedSunriseSunsetData)(CLLocation * _Nullable, NSDate * _Nullable, Cache
                 NSCachedURLResponse *cachedResponse = [[NSCachedURLResponse alloc] initWithResponse:response data:data userInfo:solarDataIdentifiers storagePolicy:NSURLCacheStorageAllowed];
                 [[NSURLCache sharedURLCache] storeCachedResponse:cachedResponse forRequest:request];
                 NSData *cachedData = [[[NSURLCache sharedURLCache] cachedResponseForRequest:request] data];
-                sunriseSunsetData(responseSunriseSunsetOrg(cachedData));
+                NSArray<NSDate *> *sunriseSunsetDates = responseSunriseSunsetOrg(cachedData);
+                NSDateInterval *dateSpan = [[NSDateInterval alloc] initWithStartDate:sunriseSunsetDates.firstObject endDate:sunriseSunsetDates.lastObject];
+                sunriseSunsetData(sunriseSunsetDates, hourDurations(dateSpan));
             }
         }] resume];
     }
@@ -231,29 +245,29 @@ Planet(^planetForDay)(NSDate *) = ^(NSDate *date)
     return planet;
 };
 
-NSString *(^planetSymbolForHour)(NSDate *, NSUInteger) = ^(NSDate *date, NSUInteger hour)
+NSString *(^planetSymbolForHour)(Planet, NSUInteger) = ^(Planet planetForDay, NSUInteger hour)
 {
-    return planetSymbol((planetForDay(date) + hour) % 7);
+    return planetSymbol((planetForDay + hour) % 7);
 };
 
-NSString *(^planetNameForHour)(NSDate *, NSUInteger) = ^(NSDate *date, NSUInteger hour)
+NSString *(^planetNameForHour)(Planet, NSUInteger) = ^(Planet planetForDay, NSUInteger hour)
 {
-    return planetName((planetForDay(date) + hour) % 7);
+    return planetName((planetForDay + hour) % 7);
 };
 
-NSDictionary *(^planetaryHourData)(NSArray<NSNumber *> *, NSUInteger, NSArray<NSDate *> *, CLLocationCoordinate2D) = ^(NSArray<NSNumber *> *hourDurations, NSUInteger hour, NSArray<NSDate *> *start, CLLocationCoordinate2D coordinate)
+NSDictionary *(^planetaryHourData)(NSArray<NSNumber *> *, NSUInteger, NSArray<NSDate *> *, CLLocationCoordinate2D) = ^(NSArray<NSNumber *> *hourDurations, NSUInteger hour, NSArray<NSDate *> *dates, CLLocationCoordinate2D coordinate)
 {
     NSUInteger index = (hour < HOURS_PER_SOLAR_TRANSIT) ? 0 : 1;
     NSTimeInterval startTimeInterval = hourDurations[index].doubleValue * hour;
-    NSDate *startTime                = [[NSDate alloc] initWithTimeInterval:startTimeInterval sinceDate:start[index]];
+    NSDate *startTime                = [[NSDate alloc] initWithTimeInterval:startTimeInterval sinceDate:dates[index]];
     NSTimeInterval endTimeInterval   = hourDurations[index].doubleValue * (hour + 1);
-    NSDate *endTime                  = [[NSDate alloc] initWithTimeInterval:endTimeInterval sinceDate:start[index]];
-    
+    NSDate *endTime                  = [[NSDate alloc] initWithTimeInterval:endTimeInterval sinceDate:dates[index]];
+    Planet dailyPlanet               = planetForDay(dates[index]);
     NSDictionary *planetaryHour = @{kPlanetaryHourBeginDataKey    : [startTime description],
                                     kPlanetaryHourEndDataKey      : [endTime description],
                                     kPlanetaryHourLocationDataKey : [NSString stringWithFormat:@"%f, %f", coordinate.latitude, coordinate.longitude],
-                                    kPlanetaryHourSymbolDataKey   : planetSymbolForHour(start[index], hour),
-                                    kPlanetaryHourNameDataKey     : planetNameForHour(start[index], hour)};
+                                    kPlanetaryHourSymbolDataKey   : planetSymbolForHour(dailyPlanet, hour),
+                                    kPlanetaryHourNameDataKey     : planetNameForHour(dailyPlanet, hour)};
     
     return planetaryHour;
 };
@@ -314,15 +328,9 @@ void(^currentPlanetaryHourAtLocation)(CLLocation * _Nullable, CurrentPlanetaryHo
 {
     location = (CLLocationCoordinate2DIsValid(location.coordinate)) ? locationManager.location : location;
     cachedSunriseSunsetData(location, [NSDate date],
-                            ^(NSArray<NSDate *> * _Nonnull sunriseSunsetDates) {
+                            ^(NSArray<NSDate *> * _Nonnull sunriseSunsetDates, NSArray<NSNumber *> * _Nonnull hourDurations) {
                                 __block NSUInteger hour = 0;
                                 __block dispatch_block_t planetaryHoursDictionaries;
-                                
-                                NSDateInterval *dateSpan = [[NSDateInterval alloc] initWithStartDate:sunriseSunsetDates.firstObject endDate:sunriseSunsetDates.lastObject];
-                                NSTimeInterval dayHourDuration = dateSpan.duration / HOURS_PER_SOLAR_TRANSIT;
-                                NSTimeInterval nightSpan = fabs(SECONDS_PER_DAY - dateSpan.duration);
-                                NSTimeInterval nightHourDuration = nightSpan / HOURS_PER_SOLAR_TRANSIT;
-                                NSArray<NSNumber *> *hourDurations = @[[NSNumber numberWithDouble:dayHourDuration], [NSNumber numberWithDouble:nightHourDuration]];
                                 
                                 void(^planetaryHoursDictionary)(NSInteger) = ^(NSInteger index) {
                                     NSTimeInterval startTimeInterval = hourDurations[index].doubleValue * hour;
@@ -351,15 +359,7 @@ void(^planetaryHourBlock)(NSUInteger, NSDate * _Nullable, CLLocation * _Nullable
 {
     location = (CLLocationCoordinate2DIsValid(location.coordinate)) ? locationManager.location : location;
     cachedSunriseSunsetData(location, (!date) ? [NSDate date] : date,
-                            ^(NSArray<NSDate *> * _Nonnull sunriseSunsetDates) {
-                                NSTimeInterval daySpan = [sunriseSunsetDates.lastObject timeIntervalSinceDate:sunriseSunsetDates.firstObject];
-                                NSTimeInterval dayHourDuration = daySpan / HOURS_PER_SOLAR_TRANSIT;
-                                NSTimeInterval nightSpan = fabs(SECONDS_PER_DAY - daySpan);
-                                NSTimeInterval nightHourDuration = nightSpan / HOURS_PER_SOLAR_TRANSIT;
-                                NSLog(@"(%@\t-\t%@) / 12\t=\t%f", sunriseSunsetDates.firstObject, sunriseSunsetDates.lastObject, dayHourDuration);
-
-                                NSArray<NSNumber *> *hourDurations = @[[NSNumber numberWithDouble:dayHourDuration], [NSNumber numberWithDouble:nightHourDuration]];
-                                
+                            ^(NSArray<NSDate *> * _Nonnull sunriseSunsetDates, NSArray<NSNumber *> * _Nonnull hourDurations) {
                                 planetaryHourCompletionBlock(planetaryHourData(hourDurations, hour, sunriseSunsetDates, location.coordinate));
                             });
 //    return ^NSDictionary *(NSDictionary *currentPlanetaryHourData) {
@@ -403,8 +403,19 @@ void(^calendarForEventStore)(EKEventStore *, CalendarForEventStoreCompletionBloc
     }];
 };
 
-EKEvent *(^planetaryHourEvent)(EKEventStore *, EKCalendar *, NSString *, NSString *, NSDate *, NSDate *, CLLocation *) = ^(EKEventStore *eventStore, EKCalendar *calendar, NSString *symbol, NSString *name, NSDate *startTime, NSDate *endTime, CLLocation *location)
+EKEvent *(^planetaryHourEvent)(NSUInteger, EKEventStore *, EKCalendar *, NSArray<NSNumber *> *, NSArray<NSDate *> *, CLLocation *) = ^(NSUInteger hour, EKEventStore *eventStore, EKCalendar *calendar, NSArray<NSNumber *> *hourDurations, NSArray<NSDate *> *dates, CLLocation *location)
 {
+    Meridian meridian = (hour < HOURS_PER_SOLAR_TRANSIT) ? AM : PM;
+    SolarTransit transit = (hour < HOURS_PER_SOLAR_TRANSIT) ? Sunrise : Sunset;
+    Planet planet = planetForDay(dates.firstObject);
+    NSUInteger planetStringIndex = ((planet + hour) % NUMBER_OF_PLANETS);
+    NSString *symbol = planetSymbol(planetStringIndex);
+    NSString *name   = planetName(planetStringIndex);
+    NSTimeInterval startTimeInterval = hourDurations[meridian].doubleValue * hour;
+    NSDate *startTime                = [[NSDate alloc] initWithTimeInterval:startTimeInterval sinceDate:dates[transit]];
+    NSTimeInterval endTimeInterval   = hourDurations[meridian].doubleValue * (hour + 1);
+    NSDate *endTime                  = [[NSDate alloc] initWithTimeInterval:endTimeInterval sinceDate:dates[transit]];
+    
     EKEvent *event     = [EKEvent eventWithEventStore:eventStore];
     event.calendar     = calendar;
     event.title        = [NSString stringWithFormat:@"%@\t%@", symbol, name];
@@ -423,36 +434,17 @@ void(^calendarPlanetaryHoursForDate)(NSDate * _Nullable, CLLocation * _Nullable,
     NSLog(@"%s", __PRETTY_FUNCTION__);
     location = (CLLocationCoordinate2DIsValid(location.coordinate)) ? locationManager.location : location;
     date     = (!date) ? [NSDate date] : date;
-    cachedSunriseSunsetData(location, date, ^(NSArray<NSDate *> * _Nonnull dates) {
-        NSDateInterval *dateSpan = [[NSDateInterval alloc] initWithStartDate:dates.firstObject endDate:dates.lastObject];
-        NSTimeInterval dayDuration = dateSpan.duration / HOURS_PER_SOLAR_TRANSIT;
-        NSTimeInterval nightSpan = fabs(SECONDS_PER_DAY - dayDuration);
-        NSTimeInterval nightDuration = nightSpan / HOURS_PER_SOLAR_TRANSIT;
-        NSArray<NSNumber *> *hourDurations = @[[NSNumber numberWithDouble:dayDuration], [NSNumber numberWithDouble:nightDuration]];
-        
+    cachedSunriseSunsetData(location, date, ^(NSArray<NSDate *> * _Nonnull dates, NSArray<NSNumber *> *hourDurations) {
         [eventStore requestAccessToEntityType:EKEntityTypeEvent completion:^(BOOL granted, NSError * _Nullable error) {
             if (granted)
             {
                 calendarForEventStore(eventStore, ^(EKCalendar *calendar) {
-                    __block Planet planet = planetForDay(dates.firstObject);
-                    for (long hourMultiplier = 0; hourMultiplier < HOURS_PER_SOLAR_TRANSIT; hourMultiplier++)
+                    for (long hour = 0; hour < HOURS_PER_SOLAR_TRANSIT; hour++)
                     {
-                        Meridian meridian = (hourMultiplier < HOURS_PER_SOLAR_TRANSIT) ? AM : PM;
-                        SolarTransit transit = (hourMultiplier < HOURS_PER_SOLAR_TRANSIT) ? Sunrise : Sunset;
-                        NSUInteger planetStringIndex = ((planet + hourMultiplier) % NUMBER_OF_PLANETS);
-                        NSString *symbol = planetSymbol(planetStringIndex);
-                        NSString *name   = planetName(planetStringIndex);
-                        NSTimeInterval startTimeInterval = hourDurations[meridian].doubleValue * hourMultiplier;
-                        NSDate *startTime                = [[NSDate alloc] initWithTimeInterval:startTimeInterval sinceDate:dates[transit]];
-                        NSTimeInterval endTimeInterval   = hourDurations[meridian].doubleValue * (hourMultiplier + 1);
-                        NSDate *endTime                  = [[NSDate alloc] initWithTimeInterval:endTimeInterval sinceDate:dates[transit]];
-                        
-                        
-                        
                         __autoreleasing NSError *error;
-                        if ([eventStore saveEvent:planetaryHourEvent(eventStore, calendar, symbol, name, startTime, endTime, location) span:EKSpanThisEvent error:&error])
+                        if ([eventStore saveEvent:planetaryHourEvent(hour, eventStore, calendar, hourDurations, dates, location) span:EKSpanThisEvent error:&error])
                         {
-                            NSLog(@"Event %lu saved.", (hourMultiplier + 1));
+                            NSLog(@"Event %lu saved.", (hour + 1));
                         } else {
                             NSLog(@"Error saving event: %@", error.description);
                         }
